@@ -28,7 +28,7 @@ export default function CheckoutForm({ loading, onSubmit, currency }: Props) {
                         </label>
                         <input
                             type="email"
-                            defaultValue="customer@example.com"
+                            defaultValue="simar@gmail.com"
                             className="input-base"
                             placeholder="you@example.com"
                         />

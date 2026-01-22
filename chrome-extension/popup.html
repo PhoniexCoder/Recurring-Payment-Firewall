@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Recurring Payment Firewall</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h3>Recurring Firewall</h3>
+            <div class="settings-link" id="openOptions">&#9881;</div>
+        </div>
+
+        <div class="form-section">
+            <div class="row">
+                <input type="text" id="merchantId" placeholder="Merchant ID" value="mer_123">
+                <input type="text" id="customerId" placeholder="Customer ID" value="cus_456">
+            </div>
+            <div class="row">
+                <input type="number" id="amount" placeholder="Amount" value="123.45">
+                <input type="text" id="currency" placeholder="Currency" value="INR">
+            </div>
+            <div class="row" style="margin-bottom: 5px;">
+                <input type="text" id="planId" placeholder="Plan ID (e.g. basic_monthly)" value="plan_basic">
+            </div>
+
+            <div class="checkbox-group">
+                <label><input type="checkbox" id="isRecurring" checked> Recurring?</label>
+                <label><input type="checkbox" id="wasCustomerCancelled"> Canceled?</label>
+            </div>
+
+            <div class="presets">
+                <small>Presets:</small>
+                <button class="preset-btn" data-preset="good">Good</button>
+                <button class="preset-btn" data-preset="trial">Forced Trial</button>
+                <button class="preset-btn" data-preset="cancel">Post-Cancel</button>
+                <button class="preset-btn" data-preset="micro">Micro</button>
+            </div>
+
+            <button id="evaluateBtn" class="primary-btn">Evaluate Transaction</button>
+        </div>
+
+        <div id="resultPanel" class="result-panel hidden">
+            <div class="result-header">
+                <span id="decisionLabel" class="decision">LOADING...</span>
+                <span id="trustScoreLabel" class="score">Score: --</span>
+            </div>
+            <div class="result-details">
+                <div class="detail-row">Risk: <span id="riskLabel">--</span></div>
+                <div class="detail-row">Latency: <span id="latencyLabel">--</span>ms</div>
+                <div class="detail-row rules-row">Rules: <span id="rulesLabel">--</span></div>
+            </div>
+        </div>
+
+        <div class="history-section">
+            <h4>Recent Evaluations</h4>
+            <table id="historyTable">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Dec</th>
+                        <th>Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- History rows here -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="footer">
+            API: <span id="apiUrlDisplay">loading...</span>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>
