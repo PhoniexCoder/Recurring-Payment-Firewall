@@ -24,7 +24,7 @@ export default function Home() {
   const [wasCustomerCancelled, setWasCustomerCancelled] = useState<boolean>(false);
   const [selectedProduct, setSelectedProduct] = useState<string>("STANDARD");
 
-  const RATES: Record<string, number> = { "USD": 1, "INR": 83.50, "EUR": 0.92 };
+  const RATES: Record<string, number> = { "USD": 1, "INR": 91.00, "EUR": 0.85 };
 
   useEffect(() => {
     setCustomerId(`CUST-${Math.floor(Math.random() * 10000).toString().padStart(5, '0')}`);
@@ -112,10 +112,7 @@ export default function Home() {
             <span className="font-bold text-xl tracking-tight text-slate-800">FraudFirewall</span>
           </div>
           <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-full text-xs font-medium text-slate-600">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-              Test Environment
-            </div>
+
           </div>
         </div>
       </nav>

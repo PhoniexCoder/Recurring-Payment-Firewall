@@ -59,7 +59,7 @@ export default function ResultDisplay({
                             <div className="flex-1">
                                 <div className="flex justify-between">
                                     <h4 className="font-bold text-sm text-slate-900">Premium Plan</h4>
-                                    <span className="font-bold text-sm text-slate-900">{currency === "INR" ? "₹" : currency === "EUR" ? "€" : "$"}{currency === "INR" ? (49.99 * 83.5).toFixed(0) : 49.99}</span>
+                                    <span className="font-bold text-sm text-slate-900">{currency === "INR" ? "₹" : currency === "EUR" ? "€" : "$"}{currency === "INR" ? (49.99 * 91).toFixed(0) : 49.99}</span>
                                 </div>
                                 <p className="text-xs text-slate-500 mt-1">Monthly subscription. Recurring billing.</p>
                             </div>
@@ -77,7 +77,7 @@ export default function ResultDisplay({
                                     <h4 className="font-bold text-sm text-slate-900">14-Day Free Trial</h4>
                                     <span className="font-bold text-sm text-slate-900">{currency === "INR" ? "₹" : currency === "EUR" ? "€" : "$"}0.00</span>
                                 </div>
-                                <p className="text-xs text-orange-600 mt-1 font-medium">Billed {(currency === "INR" ? "₹" : currency === "EUR" ? "€" : "$")}{currency === "INR" ? (99.99 * 83.5).toFixed(0) : 99.99} after trial ends.</p>
+                                <p className="text-xs text-orange-600 mt-1 font-medium">Billed {(currency === "INR" ? "₹" : currency === "EUR" ? "€" : "$")}{currency === "INR" ? (99.99 * 91).toFixed(0) : 99.99} after trial ends.</p>
                             </div>
                         </div>
 
@@ -91,7 +91,7 @@ export default function ResultDisplay({
                             <div className="flex-1">
                                 <div className="flex justify-between">
                                     <h4 className="font-bold text-sm text-slate-900">Test Charge</h4>
-                                    <span className="font-bold text-sm text-slate-900">{currency === "INR" ? "₹" : currency === "EUR" ? "€" : "$"}{currency === "INR" ? (1.00 * 83.5).toFixed(0) : 1.00}</span>
+                                    <span className="font-bold text-sm text-slate-900">{currency === "INR" ? "₹" : currency === "EUR" ? "€" : "$"}{currency === "INR" ? (1.00 * 91).toFixed(0) : 1.00}</span>
                                 </div>
                                 <p className="text-xs text-slate-500 mt-1">One-time micro-transaction.</p>
                             </div>

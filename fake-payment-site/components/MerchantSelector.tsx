@@ -11,9 +11,7 @@ export default function MerchantSelector({ selectedId, onSelect }: Props) {
         <div className="mb-8 animate-in fade-in slide-in-from-top-2 duration-500">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
                 <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Select Storefront</h2>
-                <div className="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded-md">
-                    Demo Mode: <span className="font-mono text-slate-600">Active</span>
-                </div>
+
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-1.5 bg-white/50 backdrop-blur-sm border border-slate-200/60 rounded-2xl shadow-sm">
@@ -36,13 +34,13 @@ export default function MerchantSelector({ selectedId, onSelect }: Props) {
                             key={merchant.id}
                             onClick={() => onSelect(merchant)}
                             className={`relative group flex items-center gap-3 p-3 rounded-xl transition-all duration-300 ${isSelected
-                                    ? "bg-white shadow-md ring-1 ring-slate-200"
-                                    : "hover:bg-white/60 hover:shadow-sm"
+                                ? "bg-white shadow-md ring-1 ring-slate-200"
+                                : "hover:bg-white/60 hover:shadow-sm"
                                 }`}
                         >
                             <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg shadow-sm transition-colors ${isSelected
-                                    ? "bg-slate-900 text-white"
-                                    : "bg-slate-100 text-slate-600 group-hover:bg-white group-hover:text-slate-900"
+                                ? "bg-slate-900 text-white"
+                                : "bg-slate-100 text-slate-600 group-hover:bg-white group-hover:text-slate-900"
                                 }`}>
                                 {icon}
                             </div>
