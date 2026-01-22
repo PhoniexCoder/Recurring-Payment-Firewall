@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import MerchantSelector from "@/components/MerchantSelector";
 import CheckoutForm from "@/components/CheckoutForm";
 import ResultDisplay from "@/components/ResultDisplay";
 import HistoryTable from "@/components/HistoryTable";
 import { MerchantProfile, TransactionPayload, FirewallResponse, HistoryItem } from "@/types";
 import { callFirewall } from "@/lib/api";
+import { v4 as uuidv4 } from "uuid";
 
 export default function Home() {
   const [selectedMerchant, setSelectedMerchant] = useState<MerchantProfile | null>(null);
@@ -15,18 +16,64 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
 
+  // Lifted State for Split Layout
+  const [amount, setAmount] = useState<number>(49.99);
+  const [currency, setCurrency] = useState<string>("USD");
+  const [customerId, setCustomerId] = useState<string>("");
+  const [isRecurring, setIsRecurring] = useState<boolean>(true);
+  const [wasCustomerCancelled, setWasCustomerCancelled] = useState<boolean>(false);
+  const [selectedProduct, setSelectedProduct] = useState<string>("STANDARD");
+
+  const RATES: Record<string, number> = { "USD": 1, "INR": 83.50, "EUR": 0.92 };
+
+  useEffect(() => {
+    setCustomerId(`CUST-${Math.floor(Math.random() * 10000).toString().padStart(5, '0')}`);
+  }, []);
+
+  // Update logic based on "Product" selection
+  useEffect(() => {
+    const rate = RATES[currency];
+    if (selectedProduct === "STANDARD") {
+      setAmount(parseFloat((49.99 * rate).toFixed(2)));
+      setIsRecurring(true);
+      setWasCustomerCancelled(false);
+    } else if (selectedProduct === "TRIAL") {
+      setAmount(parseFloat((99.99 * rate).toFixed(2)));
+      setIsRecurring(true);
+      setWasCustomerCancelled(true);
+    } else if (selectedProduct === "CHEAP") {
+      setAmount(parseFloat((1.00 * rate).toFixed(2)));
+      setIsRecurring(false);
+      setWasCustomerCancelled(false);
+    }
+  }, [selectedProduct, currency]);
+
   const handleMerchantSelect = (merchant: MerchantProfile) => {
     setSelectedMerchant(merchant);
     setResult(null);
     setError(null);
   };
 
-  const handleTransactionSubmit = async (payload: TransactionPayload) => {
+  const handleTransactionSubmit = async () => {
     if (!selectedMerchant) return;
 
     setLoading(true);
     setError(null);
     setResult(null);
+
+    const txId = uuidv4();
+    const payload: TransactionPayload = {
+      transactionId: txId,
+      merchantId: selectedMerchant.id,
+      customerId,
+      amount,
+      currency,
+      timestamp: new Date().toISOString(),
+      isRecurring,
+      planId: selectedMerchant.defaultPlanId,
+      status: "SUCCESS",
+      wasCustomerCancelled,
+    };
 
     const historyItem: HistoryItem = {
       timestamp: payload.timestamp,
@@ -39,73 +86,72 @@ export default function Home() {
     try {
       const response = await callFirewall(payload);
       setResult(response);
-
       setHistory(prev => [{
         ...historyItem,
         decision: response.decision,
         trustScore: response.trustScore
       }, ...prev]);
-
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
       setResult(null);
-
-      setHistory(prev => [{
-        ...historyItem,
-        decision: "ERROR"
-      }, ...prev]);
+      setHistory(prev => [{ ...historyItem, decision: "ERROR" }, ...prev]);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 bg-slate-50">
-      <div className="max-w-6xl mx-auto">
-
-        {/* Header Section */}
-        <header className="mb-12 text-center animate-in fade-in slide-in-from-top-4 duration-500">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold mb-4 border border-blue-100">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-            </span>
-            Live Demo Environment
+    <main className="min-h-screen bg-[#f7f9fc] text-slate-900 font-sans pb-20">
+      {/* Top Navigation Bar */}
+      <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
+              F
+            </div>
+            <span className="font-bold text-xl tracking-tight text-slate-800">FraudFirewall</span>
           </div>
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-full text-xs font-medium text-slate-600">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+              Test Environment
+            </div>
+          </div>
+        </div>
+      </nav>
 
-          <h1 className="text-4xl font-display font-bold text-slate-900 tracking-tight sm:text-5xl mb-3">
-            Recurring Payment <span className="text-blue-600">Firewall</span>
-          </h1>
-          <p className="text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
-            Submit simulated transactions to test the behavioral analysis and fraud scoring engine.
-          </p>
-        </header>
-
+      <div className="max-w-6xl mx-auto px-6 py-10">
         <MerchantSelector
           selectedId={selectedMerchant?.id || ""}
           onSelect={handleMerchantSelect}
         />
 
         {selectedMerchant && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start animate-in fade-in zoom-in-95 duration-300">
-            {/* Left Column: Input */}
-            <div>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-in fade-in slide-in-from-bottom-4 duration-700">
+
+            {/* Left Column: Payment Details (Form) */}
+            <div className="lg:col-span-7 order-2 lg:order-1">
               <CheckoutForm
-                merchant={selectedMerchant}
-                onSubmit={handleTransactionSubmit}
                 loading={loading}
+                onSubmit={handleTransactionSubmit}
+                currency={currency}
               />
             </div>
 
-            {/* Right Column: Output */}
-            <div className="flex flex-col gap-8">
-              <div className="lg:h-[460px]">
-                <ResultDisplay
-                  result={result}
-                  loading={loading}
-                  error={error}
-                />
-              </div>
+            {/* Right Column: Order Summary (Receipt/Cart) */}
+            <div className="lg:col-span-5 order-1 lg:order-2 lg:sticky lg:top-24">
+              <ResultDisplay
+                result={result}
+                loading={loading}
+                error={error}
+                // Cart Props
+                amount={amount}
+                currency={currency}
+                selectedProduct={selectedProduct}
+                onProductChange={setSelectedProduct}
+                onCurrencyChange={setCurrency}
+                merchantName={selectedMerchant.name}
+              />
             </div>
 
           </div>
