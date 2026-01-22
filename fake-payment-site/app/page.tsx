@@ -46,7 +46,12 @@ export default function Home() {
       setIsRecurring(false);
       setWasCustomerCancelled(false);
     }
-  }, [selectedProduct, currency]);
+    if (selectedMerchant) {
+      document.title = `${selectedMerchant.name} | Secure Checkout`;
+    } else {
+      document.title = "Fraud Firewall | Merchant Portal";
+    }
+  }, [selectedMerchant, selectedProduct, currency]);
 
   const handleMerchantSelect = (merchant: MerchantProfile) => {
     setSelectedMerchant(merchant);
@@ -109,7 +114,9 @@ export default function Home() {
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
               F
             </div>
-            <span className="font-bold text-xl tracking-tight text-slate-800">FraudFirewall</span>
+            <span className="font-bold text-xl tracking-tight text-slate-800">
+              {selectedMerchant ? selectedMerchant.name : "FraudFirewall"}
+            </span>
           </div>
           <div className="flex items-center gap-4">
 

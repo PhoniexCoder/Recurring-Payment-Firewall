@@ -24,7 +24,268 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.querySelectorAll('.preset-btn').forEach(btn => {
         btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
     });
+
+    // Auto-scrape on load
+    scrapePageDetails();
+
+    // Fetch History & Check Status
+    fetchHistory();
 });
+
+async function checkStatus() {
+    const statusEl = document.getElementById('apiUrlDisplay');
+    try {
+        const url = `${firewallBaseUrl.replace(/\/$/, '')}/mongo-status`; // Simple ping
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+        await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        statusEl.textContent = "CONNECTED";
+        statusEl.style.color = "#00ff00"; // Terminal Green
+    } catch (e) {
+        statusEl.textContent = "API OFFLINE";
+        statusEl.style.color = "#ff3333";
+    }
+}
+
+async function fetchHistory() {
+    await checkStatus(); // Check connectivity first
+
+    try {
+        const url = `${firewallBaseUrl.replace(/\/$/, '')}/recent-transactions?limit=10`;
+        const res = await fetch(url);
+        if (!res.ok) return;
+
+        const data = await res.json();
+        if (data.ok && data.history) {
+            const tbody = document.querySelector('#historyTable tbody');
+            tbody.innerHTML = ''; // Clear local only history
+
+            data.history.forEach(tx => {
+                // Determine color
+                let color = '#ffffff'; // default
+                if (tx.decision === 'ALLOW') color = 'var(--success-color)';
+                else if (tx.decision === 'REVIEW') color = 'var(--warning-color)';
+                else if (tx.decision === 'BLOCK') color = 'var(--danger-color)';
+
+                // Format Score
+                // The API stores it in 'scores.merchant_trust_score' or 'merchant_trust_score' depending on version
+                const score = tx.scores?.merchant_trust_score || tx.merchant_trust_score || 0;
+
+                // Format Time
+                const date = new Date(tx.timestamp);
+                const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${timeStr}</td>
+                    <td style="color:${color}; font-weight:bold">${tx.decision}</td>
+                    <td>${Math.round(score)}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+    } catch (e) {
+        console.log("History fetch failed", e);
+    }
+}
+
+async function scrapePageDetails() {
+    try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab || !tab.id) return;
+
+        const results = await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            func: () => {
+                // Heuristic Parsing inside the page context
+
+                // 1. Merchant Name
+                let merchantName = null;
+
+                // Priority 1: JSON-LD Structured Data
+                // looks for schema.org 'Organization' or 'WebSite'
+                try {
+                    const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+                    for (const script of scripts) {
+                        try {
+                            const json = JSON.parse(script.textContent);
+                            const entities = Array.isArray(json) ? json : [json];
+                            for (const entity of entities) {
+                                if (['Organization', 'WebSite', 'Store', 'Corporation'].includes(entity['@type']) && entity.name) {
+                                    merchantName = entity.name;
+                                    break;
+                                }
+                            }
+                        } catch (e) { continue; }
+                        if (merchantName) break;
+                    }
+                } catch (e) { }
+
+                // Priority 2: Copyright Footer Text
+                if (!merchantName) {
+                    const bodyText = document.body.innerText;
+                    // Regex: Match © or (c), followed by optional year/range, followed by name
+                    // Avoids long phrases by limiting length
+                    const copyrightRegex = /(?:©|\(c\)|copyright)\s*(?:20\d{2})?(?:\s*[-–]\s*20\d{2})?,?\s*([A-Za-z0-9\s\.\,\'\-]{2,30})/i;
+                    const match = bodyText.match(copyrightRegex);
+
+                    if (match && match[1]) {
+                        let potentialName = match[1].trim();
+                        // Filter out common generic words
+                        const generics = ['all rights', 'reserved', 'copyright', '202', 'inc', 'ltd', 'llc'];
+                        let isGeneric = false;
+                        if (potentialName.length < 3) isGeneric = true;
+                        if (generics.some(g => potentialName.toLowerCase().startsWith(g))) isGeneric = true;
+
+                        if (!isGeneric) {
+                            // Clean trailing punctuation
+                            potentialName = potentialName.replace(/[\.\,]+$/, '');
+                            merchantName = potentialName;
+                        }
+                    }
+                }
+
+                // Priority 3: OG Tag > App Name > Smart Title > Hostname
+                if (!merchantName) {
+                    merchantName = document.querySelector('meta[property="og:site_name"]')?.content;
+                }
+
+                if (!merchantName) {
+                    merchantName = document.querySelector('meta[name="application-name"]')?.content;
+                }
+
+                if (!merchantName) {
+                    merchantName = document.querySelector('meta[name="apple-mobile-web-app-title"]')?.content;
+                }
+
+                if (!merchantName) {
+                    const title = document.title;
+                    if (title) {
+                        // Heuristic: Split by common separators
+                        const separators = ['|', '-', ':', '•'];
+                        let bestPart = title;
+
+                        for (const sep of separators) {
+                            if (title.indexOf(sep) !== -1) {
+                                const parts = title.split(sep);
+                                if (parts.length > 0) {
+                                    const first = parts[0].trim();
+                                    // If first part is generic, try second
+                                    const generics = ['Home', 'Welcome', 'Login', 'Sign In', 'Dashboard', 'Index', 'Open', 'App', 'Web Player', 'Portal'];
+                                    if (generics.includes(first) && parts.length > 1) {
+                                        bestPart = parts[1].trim();
+                                    } else {
+                                        bestPart = first;
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                        merchantName = bestPart;
+                    }
+                }
+
+                if (!merchantName) {
+                    merchantName = extractRootDomain(window.location.hostname);
+                    merchantName = merchantName.charAt(0).toUpperCase() + merchantName.slice(1);
+                }
+
+                // 2. Amount Extraction (Simple Regex for $XX.XX)
+                const text = document.body.innerText;
+                // Regex for $12.34 or $ 12.34
+                const priceRegex = /\$\s?(\d{1,3}(,\d{3})*(\.\d{2})?)/g;
+                const matches = [...text.matchAll(priceRegex)];
+
+                let amount = '0.00';
+                if (matches.length > 0) {
+                    // Just take the first one or try to find one near "Total"
+                    // Simple heuristic: First match is often the price on a checkout page if it's prominent
+                    amount = matches[0][1].replace(',', '');
+                }
+
+                return { merchantName, amount, hostname: window.location.hostname };
+
+                // Helper for Domain Parsing (Must be inside injected script)
+                function extractRootDomain(hostname) {
+                    let domain = hostname.toLowerCase();
+                    domain = domain.replace(/(https?:\/\/)?(www\.)?/, '');
+                    const parts = domain.split('.');
+                    if (parts.length === 1) return parts[0];
+
+                    const last = parts[parts.length - 1];
+                    const secondLast = parts[parts.length - 2];
+                    let tldParts = 1;
+
+                    if (last.length === 2 && secondLast) {
+                        const compoundSLDs = ['co', 'com', 'net', 'org', 'gov', 'edu', 'ac', 'mil', 'in', 'us', 'au', 'uk', 'sg', 'jp', 'br'];
+                        if (compoundSLDs.includes(secondLast) || secondLast.length <= 2) {
+                            tldParts = 2;
+                        }
+                    }
+
+                    if (parts.length > tldParts) {
+                        return parts[parts.length - tldParts - 1];
+                    }
+                    return parts[0];
+                }
+            }
+        });
+
+        if (results && results[0] && results[0].result) {
+            const data = results[0].result;
+
+            // Populate Fields
+            const merchantIdField = document.getElementById('merchantId');
+            const merchantNameField = document.getElementById('merchantName'); // Note: popup.html might not have this readable field yet, checking below
+            const amountField = document.getElementById('amount');
+
+            // Generate ID from Merchant Name (Priority) or Hostname (Fallback)
+            // Use scraped name if available to avoid "localhost" on dev environments
+            if (merchantIdField) {
+                let core = "";
+
+                if (data.merchantName && data.merchantName.toLowerCase() !== 'localhost') {
+                    // Create ID from Name (e.g. "Streamflow" -> "streamflow")
+                    core = data.merchantName.toLowerCase();
+                    // Keep alphanumeric
+                    core = core.replace(/[^a-z0-9]/g, '');
+                } else if (data.hostname) {
+                    // Fallback to hostname logic
+                    core = data.hostname.replace(/^www\./, '');
+                    core = core.split('.')[0];
+                    core = core.replace(/[^a-zA-Z0-9]/g, '');
+                }
+
+                if (core) merchantIdField.value = core;
+            }
+
+            // We need a place to put the human readable name if it exists, or just use it as is.
+            // Looking at the code for evaluateTransaction, it uses merchantId.
+            // Let's modify the payload construction to prioritize the scraped name if available.
+
+            // For now, let's update amount
+            if (amountField && data.amount) {
+                amountField.value = data.amount;
+            }
+
+            // Store the scraped name in a data attribute or global for evaluateTransaction to use
+            document.getElementById('merchantId').dataset.scrapedName = data.merchantName;
+
+            // Visual feedback (optional)
+            // Visual feedback REMOVED
+            // const feedback = document.createElement('div');
+            // feedback.textContent = `Found: ${data.merchantName}`;
+            // feedback.className = 'text-xs text-green-600 mt-1';
+            // document.getElementById('merchantId').parentNode.insertBefore(feedback, document.getElementById('merchantId').nextSibling);
+        }
+
+    } catch (err) {
+        console.error("Scraping failed", err);
+    }
+}
 
 let currentResult = null; // Store last result for investigation
 
@@ -99,18 +360,25 @@ async function evaluateTransaction() {
 
     // Construct Payload (Snake Case for Python API)
     // "merchant_id": "NEW_M_777","merchant_name": "Netfl1x Officia1 Ltd","amount": 0.99
+
+    // Use scraped name if available, otherwise fallback to "Unknown" or preset logic
+    let scrapedName = document.getElementById('merchantId').dataset.scrapedName;
+
+    // Preset Overrides (Manual check for quick demos alongside robust scraping)
+    let merchantIdVal = document.getElementById('merchantId').value;
+    let merchantNameVal = scrapedName || "Unknown Merchant";
+
+    if (merchantIdVal === 'mer_netflix') merchantNameVal = 'Netflix Inc';
+    if (merchantIdVal === 'mer_vpn_service') merchantNameVal = 'Super Fast VPN';
+    if (merchantIdVal === 'mer_gym') merchantNameVal = 'Iron Gym Global';
+    if (merchantIdVal === 'mer_gamer') merchantNameVal = 'Ubisoft Store';
+
     const payload = {
-        merchant_id: document.getElementById('merchantId').value,
-        merchant_name: "Unknown Merchant", // In a real ext, we'd grab this from the tab title or scraping
+        merchant_id: merchantIdVal,
+        merchant_name: merchantNameVal,
         amount: parseFloat(document.getElementById('amount').value) || 0,
         // The ML backend currently ignores customerId, planId, etc. but we keep them in UI for realism
     };
-
-    // If we want to simulate the names from presets:
-    if (payload.merchant_id === 'mer_netflix') payload.merchant_name = 'Netflix Inc';
-    if (payload.merchant_id === 'mer_vpn_service') payload.merchant_name = 'Super Fast VPN';
-    if (payload.merchant_id === 'mer_gym') payload.merchant_name = 'Iron Gym Global';
-    if (payload.merchant_id === 'mer_gamer') payload.merchant_name = 'Ubisoft Store';
 
     try {
         // Updated endpoint: /score-transaction
@@ -248,4 +516,39 @@ async function investigateTransaction() {
         btn.disabled = false;
         btn.textContent = '🕵️ Investigate';
     }
+}
+
+// Universal Helper for Domain Parsing
+function extractRootDomain(hostname) {
+    let domain = hostname.toLowerCase();
+
+    // Remove protocol if present
+    domain = domain.replace(/(https?:\/\/)?(www\.)?/, '');
+
+    const parts = domain.split('.');
+
+    // If simple (localhost, or single word)
+    if (parts.length === 1) return parts[0];
+
+    // Handle Compound TLDs (e.g., .co.uk, .com.au, .gov.in)
+    // Heuristic: If last part is 2 chars (ccTLD), check if 2nd last is short generic
+    const last = parts[parts.length - 1];
+    const secondLast = parts[parts.length - 2];
+
+    let tldParts = 1;
+    if (last.length === 2 && secondLast) {
+        // List of common SLDs in compound TLDs
+        const compoundSLDs = ['co', 'com', 'net', 'org', 'gov', 'edu', 'ac', 'mil', 'in', 'us', 'au', 'uk', 'sg', 'jp', 'br'];
+        if (compoundSLDs.includes(secondLast) || secondLast.length <= 2) {
+            tldParts = 2;
+        }
+    }
+
+    // The root is the part immediately before the TLD parts
+    // e.g. [open, spotify, com] -> tldParts=1 -> root index = 3-1-1 = 1 -> spotify
+    if (parts.length > tldParts) {
+        return parts[parts.length - tldParts - 1];
+    }
+
+    return parts[0];
 }

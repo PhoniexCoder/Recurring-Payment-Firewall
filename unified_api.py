@@ -309,10 +309,19 @@ try:
         master_df["patterns_detected"] = master_df["patterns_detected"].apply(safe_parse_patterns)
 
     merchant_lookup = master_df.set_index("merchant_id").to_dict(orient="index")
+    
+    # ✅ Name Mapping for Lookup (handle simplified IDs)
+    merchant_name_map = {}
+    for _, row in master_df.iterrows():
+        clean = normalize_name(row.get("merchant_name", ""))
+        if clean:
+            merchant_name_map[clean] = str(row["merchant_id"]).strip()
+            
 except Exception as e:
     print(f"[INIT ERROR] Could not load master CSV: {e}")
     master_df = pd.DataFrame()
     merchant_lookup = {}
+    merchant_name_map = {}
 
 
 # =============================
@@ -581,14 +590,36 @@ def merchant_history(merchant_id: str, limit: int = 10):
     return {"ok": True, "merchant_id": merchant_id, "count": len(rows), "history": rows}
 
 
+@app.get("/recent-transactions")
+def recent_transactions(limit: int = 10):
+    if not MONGO_OK:
+        return {"ok": False, "error": "MongoDB not connected"}
+    
+    rows = list(
+        transactions_col.find({}, {"_id": 0})
+        .sort("timestamp", -1).limit(int(limit))
+    )
+    return {"ok": True, "count": len(rows), "history": rows}
+
+
 @app.post("/score-transaction")
 def score_transaction(req: TransactionRequest):
     merchant_id = (req.merchant_id or "").strip()
     merchant_name = req.merchant_name or ""
     amount = float(req.amount or 0)
 
-    # Known merchant
+    # Known merchant (Direct ID)
     base = merchant_lookup.get(merchant_id)
+    
+    # ✅ Fallback: Try Name Lookup (if ID was simplified by extension)
+    if not base and merchant_name:
+        clean_in = normalize_name(merchant_name)
+        found_id = merchant_name_map.get(clean_in)
+        if found_id:
+            base = merchant_lookup.get(found_id)
+            # Update ID to the real one
+            merchant_id = found_id
+
     if base:
         decision = base.get("final_decision", "REVIEW")
         response = {

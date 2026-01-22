@@ -19,10 +19,8 @@ export default function MerchantSelector({ selectedId, onSelect }: Props) {
                     const isSelected = selectedId === merchant.id;
 
                     // Determine "Store" branding based on ID
-                    const storeName = merchant.id.includes("clean") ? "StreamFlow" :
-                        merchant.id.includes("dark") ? "GymRat Pro" :
-                            merchant.id.includes("post") ? "MyMovies TV" :
-                                "GadgetZone";
+                    // const storeName = merchant.id.includes("clean") ? "StreamFlow" : ... // Removed, using merchant.name
+                    const storeName = merchant.name;
 
                     const icon = merchant.id.includes("clean") ? "🌊" :
                         merchant.id.includes("dark") ? "💪" :
