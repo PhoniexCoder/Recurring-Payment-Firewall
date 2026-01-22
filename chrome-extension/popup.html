@@ -40,6 +40,7 @@
             </div>
 
             <button id="evaluateBtn" class="primary-btn">Evaluate Transaction</button>
+            <button id="investigateBtn" class="secondary-btn hidden">🕵️ Investigate</button>
         </div>
 
         <div id="resultPanel" class="result-panel hidden">
@@ -52,6 +53,12 @@
                 <div class="detail-row">Latency: <span id="latencyLabel">--</span>ms</div>
                 <div class="detail-row rules-row">Rules: <span id="rulesLabel">--</span></div>
             </div>
+        </div>
+
+        <div id="investigationPanel" class="investigation-panel hidden">
+            <h4>🧠 Investigation Notes</h4>
+            <div id="investigationContent">Loading...</div>
+            <div id="cancellationSteps" class="cancellation-steps hidden"></div>
         </div>
 
         <div class="history-section">

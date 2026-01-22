@@ -38,7 +38,8 @@ body {
     color: #343a40;
 }
 
-input[type="text"], input[type="number"] {
+input[type="text"],
+input[type="number"] {
     width: 100%;
     padding: 6px;
     margin-bottom: 5px;
@@ -99,8 +100,25 @@ input[type="text"], input[type="number"] {
     cursor: pointer;
 }
 
+
 .primary-btn:hover {
     background-color: #0b5ed7;
+}
+
+.secondary-btn {
+    width: 100%;
+    padding: 8px;
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 5px;
+}
+
+.secondary-btn:hover {
+    background-color: #5c636a;
 }
 
 /* Result Panel */
@@ -109,7 +127,7 @@ input[type="text"], input[type="number"] {
     border-radius: 6px;
     padding: 10px;
     background-color: #fff;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .result-panel.hidden {
@@ -142,20 +160,67 @@ input[type="text"], input[type="number"] {
 }
 
 .rules-row {
-  margin-top: 4px;
-  font-style: italic;
-  color: #d63384; 
+    margin-top: 4px;
+    font-style: italic;
+    color: #d63384;
 }
 
 /* Colors for decision */
-.bg-allow { background-color: #d1e7dd; border-color: #badbcc; }
-.bg-allow .decision, .bg-allow .score { color: #0f5132; }
+.bg-allow {
+    background-color: #d1e7dd;
+    border-color: #badbcc;
+}
 
-.bg-review { background-color: #fff3cd; border-color: #ffecb5; }
-.bg-review .decision, .bg-review .score { color: #664d03; }
+.bg-allow .decision,
+.bg-allow .score {
+    color: #0f5132;
+}
 
-.bg-block { background-color: #f8d7da; border-color: #f5c2c7; }
-.bg-block .decision, .bg-block .score { color: #842029; }
+.bg-review {
+    background-color: #fff3cd;
+    border-color: #ffecb5;
+}
+
+.bg-review .decision,
+.bg-review .score {
+    color: #664d03;
+}
+
+.bg-block {
+    background-color: #f8d7da;
+    border-color: #f5c2c7;
+}
+
+.bg-block .decision,
+.bg-block .score {
+    color: #842029;
+}
+
+
+/* Investigation Panel */
+.investigation-panel {
+    border: 1px solid #17a2b8;
+    background-color: #e0f7fa;
+    border-radius: 6px;
+    padding: 10px;
+    margin-top: 10px;
+}
+
+.investigation-panel h4 {
+    margin: 0 0 5px 0;
+    font-size: 13px;
+    color: #006064;
+}
+
+.investigation-panel.hidden {
+    display: none;
+}
+
+#investigationContent {
+    font-size: 11px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+}
 
 /* History Table */
 .history-section h4 {
@@ -170,7 +235,8 @@ table {
     font-size: 10px;
 }
 
-th, td {
+th,
+td {
     border-bottom: 1px solid #eee;
     padding: 4px;
     text-align: left;

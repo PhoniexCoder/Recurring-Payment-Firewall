@@ -20,7 +20,7 @@ const saveOptions = () => {
 // stored in chrome.storage.
 const restoreOptions = () => {
     chrome.storage.sync.get(
-        { firewallBaseUrl: 'http://localhost:3000' }, // Default value
+        { firewallBaseUrl: 'http://localhost:8000' }, // Default value
         (items) => {
             document.getElementById('firewallBaseUrl').value = items.firewallBaseUrl;
         }

@@ -1,5 +1,5 @@
 // Defaults
-const DEFAULT_URL = 'http://localhost:3000';
+const DEFAULT_URL = 'http://localhost:8000';
 let firewallBaseUrl = DEFAULT_URL;
 
 // State for history
@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Listeners
     document.getElementById('evaluateBtn').addEventListener('click', evaluateTransaction);
+    document.getElementById('investigateBtn').addEventListener('click', investigateTransaction);
     document.getElementById('openOptions').addEventListener('click', () => chrome.runtime.openOptionsPage());
 
     // Preset listeners
@@ -24,6 +25,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
     });
 });
+
+let currentResult = null; // Store last result for investigation
 
 function applyPreset(type) {
     const fields = {
@@ -94,22 +97,24 @@ async function evaluateTransaction() {
     resultPanel.className = 'result-panel'; // Reset colors
     decisionLabel.textContent = '...';
 
-    // Construct Payload
+    // Construct Payload (Snake Case for Python API)
+    // "merchant_id": "NEW_M_777","merchant_name": "Netfl1x Officia1 Ltd","amount": 0.99
     const payload = {
-        transactionId: `ext_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
-        merchantId: document.getElementById('merchantId').value,
-        customerId: document.getElementById('customerId').value,
-        amount: parseFloat(document.getElementById('amount').value),
-        currency: document.getElementById('currency').value,
-        timestamp: new Date().toISOString(),
-        isRecurring: document.getElementById('isRecurring').checked,
-        planId: document.getElementById('planId').value,
-        status: "SUCCESS",
-        wasCustomerCancelled: document.getElementById('wasCustomerCancelled').checked
+        merchant_id: document.getElementById('merchantId').value,
+        merchant_name: "Unknown Merchant", // In a real ext, we'd grab this from the tab title or scraping
+        amount: parseFloat(document.getElementById('amount').value) || 0,
+        // The ML backend currently ignores customerId, planId, etc. but we keep them in UI for realism
     };
 
+    // If we want to simulate the names from presets:
+    if (payload.merchant_id === 'mer_netflix') payload.merchant_name = 'Netflix Inc';
+    if (payload.merchant_id === 'mer_vpn_service') payload.merchant_name = 'Super Fast VPN';
+    if (payload.merchant_id === 'mer_gym') payload.merchant_name = 'Iron Gym Global';
+    if (payload.merchant_id === 'mer_gamer') payload.merchant_name = 'Ubisoft Store';
+
     try {
-        const url = `${firewallBaseUrl.replace(/\/$/, '')}/api/transactions/evaluate`;
+        // Updated endpoint: /score-transaction
+        const url = `${firewallBaseUrl.replace(/\/$/, '')}/score-transaction`;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
 
@@ -124,14 +129,17 @@ async function evaluateTransaction() {
         if (!response.ok) throw new Error(`API Error: ${response.status}`);
 
         const result = await response.json();
+        currentResult = result; // Save for investigation
 
         // Render Result
         decisionLabel.textContent = result.decision;
-        scoreLabel.textContent = `Score: ${result.trustScore}`;
-        riskLabel.textContent = result.riskLevel;
-        latencyLabel.textContent = result.latencyMs;
-        rulesLabel.textContent = result.triggeredRules && result.triggeredRules.length
-            ? result.triggeredRules.join(', ')
+        scoreLabel.textContent = `Score: ${result.merchant_trust_score}`; // Updated key
+        riskLabel.textContent = result.guidance ? result.guidance.substring(0, 60) + '...' : 'N/A';
+        latencyLabel.textContent = '120'; // Mock latency for now
+
+        // Patterns
+        rulesLabel.textContent = result.patterns_detected && result.patterns_detected.length
+            ? result.patterns_detected.join(', ')
             : 'None';
 
         // Apply Styling
@@ -140,8 +148,12 @@ async function evaluateTransaction() {
         else if (result.decision === 'REVIEW') resultPanel.classList.add('bg-review');
         else resultPanel.classList.add('bg-block');
 
+        // Show Investigate Button
+        document.getElementById('investigateBtn').classList.remove('hidden');
+        document.getElementById('investigationPanel').classList.add('hidden'); // Hide old investigation
+
         // Add to History
-        addToHistory(result.decision, result.trustScore);
+        addToHistory(result.decision, result.merchant_trust_score);
 
         // Optional: Update Badge
         chrome.runtime.sendMessage({
@@ -184,5 +196,56 @@ function addToHistory(decision, score) {
     // Limit to 10
     if (tbody.children.length > 10) {
         tbody.removeChild(tbody.lastChild);
+    }
+}
+
+async function investigateTransaction() {
+    if (!currentResult) return;
+
+    const btn = document.getElementById('investigateBtn');
+    const panel = document.getElementById('investigationPanel');
+    const content = document.getElementById('investigationContent');
+
+    btn.disabled = true;
+    btn.textContent = 'Consulting Gemini...';
+    panel.classList.remove('hidden');
+    content.textContent = 'Analyzing transaction patterns and merchant history...';
+
+    // Prepare payload for investigation
+    const invPayload = {
+        merchant_id: currentResult.merchant_id,
+        merchant_name: currentResult.merchant_name,
+        amount: 0.99, // default
+        decision: currentResult.decision,
+        merchant_trust_score: currentResult.merchant_trust_score,
+        rename_similarity_score: currentResult.rename_similarity_score,
+        closest_company_match: currentResult.closest_company_match,
+        patterns_detected: currentResult.patterns_detected
+    };
+
+    try {
+        const url = `${firewallBaseUrl.replace(/\/$/, '')}/investigate-transaction`;
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(invPayload)
+        });
+
+        if (!response.ok) throw new Error(`RAG Error: ${response.status}`);
+        const data = await response.json();
+        const info = data.investigation;
+
+        // Format the output
+        let html = `<strong>Risk Summary:</strong> ${info.risk_summary || 'N/A'}\n\n`;
+        if (info.key_reasons) html += `<strong>Reasons:</strong>\n- ${info.key_reasons.join('\n- ')}\n\n`;
+        if (info.cancellation_instructions) html += `<strong>How to Cancel:</strong>\n${info.cancellation_instructions.join('\n')}`;
+
+        content.innerHTML = html.replace(/\n/g, '<br>');
+
+    } catch (e) {
+        content.textContent = "Error: " + e.message;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '🕵️ Investigate';
     }
 }
