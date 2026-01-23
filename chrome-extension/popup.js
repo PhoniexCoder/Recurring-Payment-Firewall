@@ -402,7 +402,7 @@ async function evaluateTransaction() {
         // Render Result
         decisionLabel.textContent = result.decision;
         scoreLabel.textContent = `Score: ${result.merchant_trust_score}`; // Updated key
-        riskLabel.textContent = result.guidance ? result.guidance.substring(0, 60) + '...' : 'N/A';
+        riskLabel.textContent = result.user_guidance ? result.user_guidance.substring(0, 60) + '...' : 'N/A';
         latencyLabel.textContent = '120'; // Mock latency for now
 
         // Patterns
@@ -514,7 +514,7 @@ async function investigateTransaction() {
         content.textContent = "Error: " + e.message;
     } finally {
         btn.disabled = false;
-        btn.textContent = '🕵️ Investigate';
+        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg> Investigate`;
     }
 }
 

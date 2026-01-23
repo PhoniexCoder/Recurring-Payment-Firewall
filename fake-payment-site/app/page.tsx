@@ -6,11 +6,14 @@ import CheckoutForm from "@/components/CheckoutForm";
 import ResultDisplay from "@/components/ResultDisplay";
 import HistoryTable from "@/components/HistoryTable";
 import { MerchantProfile, TransactionPayload, FirewallResponse, HistoryItem } from "@/types";
-import { callFirewall } from "@/lib/api";
+import { fetchMerchants, callFirewall } from "@/lib/api"; // Updated import
 import { v4 as uuidv4 } from "uuid";
 
 export default function Home() {
+  const [merchants, setMerchants] = useState<MerchantProfile[]>([]);
   const [selectedMerchant, setSelectedMerchant] = useState<MerchantProfile | null>(null);
+
+  // existing state...
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<FirewallResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +31,14 @@ export default function Home() {
 
   useEffect(() => {
     setCustomerId(`CUST-${Math.floor(Math.random() * 10000).toString().padStart(5, '0')}`);
+
+    // Fetch merchants from backend
+    fetchMerchants().then(data => {
+      setMerchants(data);
+      if (data.length > 0) {
+        // Optional: Select first one or leave null
+      }
+    });
   }, []);
 
   // Update logic based on "Product" selection
@@ -55,6 +66,9 @@ export default function Home() {
 
   const handleMerchantSelect = (merchant: MerchantProfile) => {
     setSelectedMerchant(merchant);
+    if (merchant.defaultPrice) {
+      setAmount(merchant.defaultPrice);
+    }
     setResult(null);
     setError(null);
   };
@@ -126,6 +140,7 @@ export default function Home() {
 
       <div className="max-w-6xl mx-auto px-6 py-10">
         <MerchantSelector
+          merchants={merchants}
           selectedId={selectedMerchant?.id || ""}
           onSelect={handleMerchantSelect}
         />

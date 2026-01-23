@@ -178,6 +178,27 @@ export default function ResultDisplay({
                 </button>
             </div>
 
+            {/* RAG Analysis Section */}
+            {result && (
+                <div className="border-t border-slate-100 p-4">
+                    <RAGAnalysis
+                        payload={{
+                            transactionId: "TX-" + Math.random(),
+                            merchantId: merchantName.toLowerCase().replace(/\s/g, "_"),
+                            customerId: "CUST-DEMO",
+                            amount: amount,
+                            currency: currency,
+                            timestamp: new Date().toISOString(),
+                            isRecurring: true,
+                            planId: "demo_plan",
+                            status: "PENDING",
+                            wasCustomerCancelled: false
+                        }}
+                        merchantName={merchantName}
+                    />
+                </div>
+            )}
+
             {/* Technical Footer (Expandable) */}
             {result && (
                 <div className="border-t border-slate-100">
@@ -209,6 +230,74 @@ export default function ResultDisplay({
                             </div>
                         </div>
                     )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+import { investigateTransaction } from "@/lib/api";
+import { InvestigationResponse, TransactionPayload } from "@/types";
+
+function RAGAnalysis({ payload, merchantName }: { payload: Partial<TransactionPayload>, merchantName: string }) {
+    const [loading, setLoading] = useState(false);
+    const [analysis, setAnalysis] = useState<InvestigationResponse | null>(null);
+
+    const handleAnalyze = async () => {
+        setLoading(true);
+        // Ensure merchant_name is passed correctly
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const enrichedPayload = { ...payload, merchant_name: merchantName } as any;
+        const res = await investigateTransaction(enrichedPayload);
+        setAnalysis(res);
+        setLoading(false);
+    };
+
+    if (!analysis) {
+        return (
+            <button
+                onClick={handleAnalyze}
+                disabled={loading}
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-70"
+            >
+                {loading ? (
+                    <>
+                        <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Analyzing with Fraud Agent...</span>
+                    </>
+                ) : (
+                    <>
+                        <span>🕵️ Analyze with Fraud Agent</span>
+                    </>
+                )}
+            </button>
+        );
+    }
+
+    const { investigation } = analysis;
+
+    return (
+        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 animate-in fade-in slide-in-from-bottom-2">
+            <h4 className="font-bold text-indigo-900 mb-2 flex items-center gap-2">
+                🤖 Agent Investigation
+                <span className="text-xs font-normal bg-indigo-200 text-indigo-800 px-2 py-0.5 rounded-full">{investigation.confidence} CONFIDENCE</span>
+            </h4>
+
+            <p className="text-sm text-indigo-800 mb-4 italic">
+                &quot;{investigation.risk_summary}&quot;
+            </p>
+
+            {investigation.cancellation_instructions && investigation.cancellation_instructions.length > 0 && (
+                <div className="bg-white rounded-lg p-3 border border-indigo-100">
+                    <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">How to Cancel</h5>
+                    <ul className="list-decimal list-inside text-sm text-slate-700 space-y-1">
+                        {investigation.cancellation_instructions.map((step, i) => (
+                            <li key={i}>{step}</li>
+                        ))}
+                    </ul>
                 </div>
             )}
         </div>

@@ -24,6 +24,7 @@ export interface MerchantProfile {
     name: string;
     description: string;
     defaultPlanId: string;
+    defaultPrice?: number;
 }
 
 export interface HistoryItem {
@@ -34,4 +35,18 @@ export interface HistoryItem {
     currency: string;
     decision?: string;
     trustScore?: number;
+}
+
+export interface InvestigationResponse {
+    ok: boolean;
+    merchant_id: string;
+    merchant_name: string;
+    investigation: {
+        risk_summary: string;
+        key_reasons: string[];
+        recommended_bank_action: string[];
+        customer_guidance: string[];
+        cancellation_instructions: string[];
+        confidence: string;
+    };
 }

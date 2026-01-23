@@ -1,21 +1,21 @@
 import { MerchantProfile } from "@/types";
-import { MERCHANTS } from "@/lib/constants";
+
 
 interface Props {
+    merchants: MerchantProfile[];
     selectedId: string;
     onSelect: (merchant: MerchantProfile) => void;
 }
 
-export default function MerchantSelector({ selectedId, onSelect }: Props) {
+export default function MerchantSelector({ merchants, selectedId, onSelect }: Props) {
     return (
         <div className="mb-8 animate-in fade-in slide-in-from-top-2 duration-500">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
                 <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Select Storefront</h2>
-
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-1.5 bg-white/50 backdrop-blur-sm border border-slate-200/60 rounded-2xl shadow-sm">
-                {MERCHANTS.map((merchant) => {
+                {merchants.map((merchant) => {
                     const isSelected = selectedId === merchant.id;
 
                     // Determine "Store" branding based on ID
