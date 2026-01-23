@@ -109,7 +109,7 @@ export default function ResultDisplay({
                         </div>
                         <div className="flex justify-between text-base font-bold text-slate-900 pt-2">
                             <span>Total Due</span>
-                            <span>{currency === "INR" ? "₹" : currency === "EUR" ? "€" : "$"}{amount}</span>
+                            <span id="checkout-total-amount" data-currency={currency}>{currency === "INR" ? "₹" : currency === "EUR" ? "€" : "$"}{amount}</span>
                         </div>
                     </div>
                 </div>

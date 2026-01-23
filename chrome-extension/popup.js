@@ -193,20 +193,67 @@ async function scrapePageDetails() {
                     merchantName = merchantName.charAt(0).toUpperCase() + merchantName.slice(1);
                 }
 
-                // 2. Amount Extraction (Simple Regex for $XX.XX)
-                const text = document.body.innerText;
-                // Regex for $12.34 or $ 12.34
-                const priceRegex = /\$\s?(\d{1,3}(,\d{3})*(\.\d{2})?)/g;
-                const matches = [...text.matchAll(priceRegex)];
-
+                // 2. Amount & Currency Extraction
                 let amount = '0.00';
-                if (matches.length > 0) {
-                    // Just take the first one or try to find one near "Total"
-                    // Simple heuristic: First match is often the price on a checkout page if it's prominent
-                    amount = matches[0][1].replace(',', '');
+                let currency = 'USD';
+
+                // Currency Map
+                const symbolToCode = {
+                    '$': 'USD', '€': 'EUR', '£': 'GBP', '₹': 'INR', '¥': 'JPY', 'USD': 'USD', 'EUR': 'EUR', 'INR': 'INR'
+                };
+
+                // Priority 1: Exact ID (Added for Fake Site)
+                const totalEl = document.getElementById('checkout-total-amount');
+
+                function parseText(txt, datasetCurr) {
+                    if (!txt) return {};
+
+                    // Detect Currency
+                    let foundCurr = 'USD';
+
+                    if (datasetCurr) {
+                        foundCurr = datasetCurr;
+                    } else {
+                        for (const [sym, code] of Object.entries(symbolToCode)) {
+                            if (txt.includes(sym)) {
+                                foundCurr = code;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Extract Amount
+                    // Improved Regex: greedy capture of digits/commas/dots, then cleanup
+                    const numMatch = txt.match(/([0-9,]+(?:\.[0-9]{2})?)/);
+
+                    let foundAmt = null;
+                    if (numMatch) {
+                        foundAmt = numMatch[1].replace(/,/g, '');
+                        // Sanity check
+                        if (isNaN(parseFloat(foundAmt))) foundAmt = null;
+                    }
+
+                    return { foundAmt, foundCurr };
                 }
 
-                return { merchantName, amount, hostname: window.location.hostname };
+                if (totalEl) {
+                    const { foundAmt, foundCurr } = parseText(totalEl.innerText, totalEl.dataset.currency);
+                    if (foundAmt) amount = foundAmt;
+                    if (foundCurr) currency = foundCurr;
+                } else {
+                    // Priority 2: Simplistic Body Search
+                    const text = document.body.innerText;
+                    const matches = text.match(/([$€£₹]|USD|EUR|INR)\s?((?:\d{1,3}(?:,\d{3})*|\d+)(?:\.\d{2})?)/g);
+
+                    if (matches && matches.length > 0) {
+                        const val = matches[0];
+                        const { foundAmt, foundCurr } = parseText(val);
+                        if (foundAmt) amount = foundAmt;
+                        if (foundCurr) currency = foundCurr;
+                    }
+                }
+
+                return { merchantName, amount, currency, hostname: window.location.hostname };
 
                 // Helper for Domain Parsing (Must be inside injected script)
                 function extractRootDomain(hostname) {
@@ -239,49 +286,42 @@ async function scrapePageDetails() {
 
             // Populate Fields
             const merchantIdField = document.getElementById('merchantId');
-            const merchantNameField = document.getElementById('merchantName'); // Note: popup.html might not have this readable field yet, checking below
             const amountField = document.getElementById('amount');
+            const currencyField = document.getElementById('currency');
 
-            // Generate ID from Merchant Name (Priority) or Hostname (Fallback)
-            // Use scraped name if available to avoid "localhost" on dev environments
+            // Generate ID from Merchant Name (Priority)
             if (merchantIdField) {
                 let core = "";
-
                 if (data.merchantName && data.merchantName.toLowerCase() !== 'localhost') {
-                    // Create ID from Name (e.g. "Streamflow" -> "streamflow")
-                    core = data.merchantName.toLowerCase();
-                    // Keep alphanumeric
-                    core = core.replace(/[^a-z0-9]/g, '');
+                    core = data.merchantName.toLowerCase().replace(/[^a-z0-9]/g, '');
                 } else if (data.hostname) {
-                    // Fallback to hostname logic
-                    core = data.hostname.replace(/^www\./, '');
-                    core = core.split('.')[0];
-                    core = core.replace(/[^a-zA-Z0-9]/g, '');
+                    core = data.hostname.replace(/^www\./, '').split('.')[0].replace(/[^a-zA-Z0-9]/g, '');
                 }
-
                 if (core) merchantIdField.value = core;
             }
 
-            // We need a place to put the human readable name if it exists, or just use it as is.
-            // Looking at the code for evaluateTransaction, it uses merchantId.
-            // Let's modify the payload construction to prioritize the scraped name if available.
-
-            // For now, let's update amount
-            if (amountField && data.amount) {
-                amountField.value = data.amount;
+            // Update Currency
+            if (currencyField && data.currency) {
+                currencyField.value = data.currency;
             }
 
-            // Store the scraped name in a data attribute or global for evaluateTransaction to use
+            // Update Amount and Detected Label
+            if (amountField && data.amount) {
+                amountField.value = data.amount;
+
+                // Update Badge / Label
+                const detectedLabel = document.getElementById('detectedAmountDisplay');
+                const detectedValue = document.getElementById('detectedAmountValue');
+                if (detectedLabel && detectedValue) {
+                    const symbol = data.currency === 'EUR' ? '€' : data.currency === 'INR' ? '₹' : '$';
+                    detectedValue.textContent = `${symbol}${data.amount}`;
+                    detectedLabel.style.display = 'block';
+                }
+            }
+
+            // Store the scraped name
             document.getElementById('merchantId').dataset.scrapedName = data.merchantName;
-
-            // Visual feedback (optional)
-            // Visual feedback REMOVED
-            // const feedback = document.createElement('div');
-            // feedback.textContent = `Found: ${data.merchantName}`;
-            // feedback.className = 'text-xs text-green-600 mt-1';
-            // document.getElementById('merchantId').parentNode.insertBefore(feedback, document.getElementById('merchantId').nextSibling);
         }
-
     } catch (err) {
         console.error("Scraping failed", err);
     }
