@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     COMPANY_CSV_PATH: str = os.path.join(ML_DIR, "Online retial II", "company names", "Company Names.csv")
 
     model_config = SettingsConfigDict(
-        env_file=".env", 
+        env_file=(".env", "recurring_firewall/app/.env", "app/.env"), 
         env_file_encoding="utf-8",
         extra="ignore"
     )
